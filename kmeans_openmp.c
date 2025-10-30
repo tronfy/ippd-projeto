@@ -77,7 +77,6 @@ void initialize_centroids(Point *points, Point *centroids, int M, int K, int D)
     srand(42); // Semente fixa para reprodutibilidade
 
     int *indices = (int *)malloc(M * sizeof(int));
-#pragma omp parallel for
     for (int i = 0; i < M; i++)
     {
         indices[i] = i;
@@ -90,7 +89,6 @@ void initialize_centroids(Point *points, Point *centroids, int M, int K, int D)
         indices[i] = indices[j];
         indices[j] = temp;
     }
-#pragma omp parallel for
     for (int i = 0; i < K; i++)
     {
         memcpy(centroids[i].coords, points[indices[i]].coords, D * sizeof(int));
