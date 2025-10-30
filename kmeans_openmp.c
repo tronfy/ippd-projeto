@@ -31,6 +31,7 @@ typedef struct
 long long euclidean_dist_sq(Point *p1, Point *p2, int D)
 {
     long long dist = 0;
+#pragma omp simd reduction(+ : dist)
     for (int i = 0; i < D; i++)
     {
         long long diff = (long long)p1->coords[i] - p2->coords[i];
