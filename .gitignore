@@ -1,0 +1,6 @@
+gerador_dataset
+debug_data.txt
+kmeans_sequencial
+kmeans_openmp
+kmeans_pthreads
+kmeans_mpi
