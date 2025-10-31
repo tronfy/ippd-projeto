@@ -14,4 +14,4 @@ pth:
 	gcc -o kmeans_pthreads kmeans_pthreads.c -lpthread -O3
 
 mpi:
-	mpicc -o kmeans_mpi kmeans_mpi.c -O3
+	mpicc -mavx2 -o kmeans_mpi kmeans_mpi.c -O3

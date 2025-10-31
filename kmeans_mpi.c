@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 199309L // Necessário para CLOCK_MONOTONIC
-#include <limits.h>             // Para LLONG_MAX
+#include <immintrin.h>
+#include <limits.h> // Para LLONG_MAX
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,10 +23,51 @@ typedef struct {
  */
 long long euclidean_dist_sq(Point *p1, Point *p2, int D) {
   long long dist = 0;
-  for (int i = 0; i < D; i++) {
+
+  // #if defined(__AVX2__)
+  __m256i sum_vec = _mm256_setzero_si256();
+  int i = 0;
+
+  for (; i + 7 < D; i += 8) {
+    // carrega 8 valores int32 de cada ponto
+    __m256i v1 = _mm256_loadu_si256((__m256i *)&p1->coords[i]);
+    __m256i v2 = _mm256_loadu_si256((__m256i *)&p2->coords[i]);
+
+    // calcula a diferença
+    __m256i diff = _mm256_sub_epi32(v1, v2);
+
+    // eleva diferença ao quadrado: converte para 64 bits para multiplicação
+    __m128i diff_lo = _mm256_castsi256_si128(diff);
+    __m128i diff_hi = _mm256_extracti128_si256(diff, 1);
+
+    __m256i diff_lo_64 = _mm256_cvtepi32_epi64(diff_lo);
+    __m256i diff_hi_64 = _mm256_cvtepi32_epi64(diff_hi);
+
+    __m256i sq_lo = _mm256_mul_epi32(diff_lo_64, diff_lo_64);
+    __m256i sq_hi = _mm256_mul_epi32(diff_hi_64, diff_hi_64);
+
+    // acumula
+    sum_vec = _mm256_add_epi64(sum_vec, sq_lo);
+    sum_vec = _mm256_add_epi64(sum_vec, sq_hi);
+  }
+
+  // soma os elementos do vetor de soma
+  long long temp[4];
+  _mm256_storeu_si256((__m256i *)temp, sum_vec);
+  dist = temp[0] + temp[1] + temp[2] + temp[3];
+
+  // processa os elementos restantes
+  for (; i < D; i++) {
     long long diff = (long long)p1->coords[i] - p2->coords[i];
     dist += diff * diff;
   }
+  // #else
+  //   for (int i = 0; i < D; i++) {
+  //     long long diff = (long long)p1->coords[i] - p2->coords[i];
+  //     dist += diff * diff;
+  //   }
+  // #endif
+
   return dist;
 }
 

@@ -23,10 +23,10 @@ CPU_CORES = os.cpu_count() or 4 # Usa 4 como padrão se a detecção falhar
 
 # Lista de executáveis a serem testados
 EXECUTABLES = [
-    {"name": "Sequencial", "source": "kmeans_sequencial.c", "output": "kmeans_sequencial", "type": "serial", "compile_cmd": "gcc -o kmeans_sequencial kmeans_sequencial.c -O3"},
-    {"name": "OpenMP", "source": "kmeans_openmp.c", "output": "kmeans_openmp", "type": "omp", "compile_cmd": "gcc -o kmeans_openmp kmeans_openmp.c -fopenmp -O3"},
-    #{"name": "Pthreads", "source": "kmeans_pthreads.c", "output": "kmeans_pthreads", "type": "serial", "compile_cmd": "gcc -o kmeans_pthreads kmeans_pthreads.c -lpthread -O3"},
-    #{"name": "MPI", "source": "kmeans_mpi.c", "output": "kmeans_mpi", "type": "mpi", "compile_cmd": "mpicc -o kmeans_mpi kmeans_mpi.c -O3"}
+    {"name": "Sequencial", "source": "kmeans_sequencial.c", "output": "kmeans_sequencial", "type": "serial", "compile_cmd": "make seq"},
+    {"name": "OpenMP", "source": "kmeans_openmp.c", "output": "kmeans_openmp", "type": "omp", "compile_cmd": "make omp"},
+    #{"name": "Pthreads", "source": "kmeans_pthreads.c", "output": "kmeans_pthreads", "type": "serial", "compile_cmd": "make pth"},
+    {"name": "MPI", "source": "kmeans_mpi.c", "output": "kmeans_mpi", "type": "mpi", "compile_cmd": "make mpi"}
 ]
 
 # --- Cores para o Terminal ---
@@ -82,7 +82,7 @@ def run_benchmark(golden_checksum, args):
         base_cmd = [f"./{exe['output']}"] + args
         run_env = os.environ.copy()
         if exe['type'] == 'omp': run_env['OMP_NUM_THREADS'] = str(CPU_CORES)
-        elif exe['type'] == 'mpi': base_cmd = ["mpirun", "-np", str(CPU_CORES)] + base_cmd
+        elif exe['type'] == 'mpi': base_cmd = ["mpirun", "--use-hwthread-cpus", "-np", str(CPU_CORES)] + base_cmd
             
         for i in range(NUM_RUNS):
             print(f"  Execução {i + 1}/{NUM_RUNS}... ", end='', flush=True)
