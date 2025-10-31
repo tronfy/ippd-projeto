@@ -14,4 +14,4 @@ pth:
 	gcc -o kmeans_pthreads kmeans_pthreads.c -lpthread -O3
 
 mpi:
-	mpicc -mavx2 -o kmeans_mpi kmeans_mpi.c -O3
+	mpicc -o kmeans_mpi kmeans_mpi.c -mavx2 -Ofast -floop-optimize -fprefetch-loop-arrays
