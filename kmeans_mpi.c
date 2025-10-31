@@ -1,27 +1,27 @@
-#define _POSIX_C_SOURCE 199309L  // Necessário para CLOCK_MONOTONIC
-#include <limits.h>              // Para LLONG_MAX
+#define _POSIX_C_SOURCE 199309L // Necessário para CLOCK_MONOTONIC
+#include <limits.h>             // Para LLONG_MAX
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>  // Header correto para clock_gettime e struct timespec
-#include <mpi.h>
+#include <time.h> // Header correto para clock_gettime e struct timespec
 
 // Estrutura para representar um ponto no espaço D-dimensional
 typedef struct {
-  int* coords;     // Vetor de coordenadas inteiras
-  int cluster_id;  // ID do cluster ao qual o ponto pertence
+  int *coords;    // Vetor de coordenadas inteiras
+  int cluster_id; // ID do cluster ao qual o ponto pertence
 } Point;
 
 // --- Funções Utilitárias ---
 
 /**
- * @brief Calcula a distância Euclidiana ao quadrado entre dois pontos com coordenadas inteiras.
- * Usa 'long long' para evitar overflow no cálculo da distância e da diferença.
+ * @brief Calcula a distância Euclidiana ao quadrado entre dois pontos com
+ * coordenadas inteiras. Usa 'long long' para evitar overflow no cálculo da
+ * distância e da diferença.
  * @return A distância Euclidiana ao quadrado como um long long.
  */
-long long euclidean_dist_sq(Point* p1, Point* p2, int D) {
+long long euclidean_dist_sq(Point *p1, Point *p2, int D) {
   long long dist = 0;
-  // debug: exibir coordenadas dos pontos
   for (int i = 0; i < D; i++) {
     long long diff = (long long)p1->coords[i] - p2->coords[i];
     dist += diff * diff;
@@ -34,8 +34,8 @@ long long euclidean_dist_sq(Point* p1, Point* p2, int D) {
 /**
  * @brief Lê os dados de pontos (inteiros) de um arquivo de texto.
  */
-void read_data_from_file(const char* filename, Point* points, int M, int D) {
-  FILE* file = fopen(filename, "r");
+void read_data_from_file(const char *filename, Point *points, int M, int D) {
+  FILE *file = fopen(filename, "r");
   if (file == NULL) {
     fprintf(stderr, "Erro: Não foi possível abrir o arquivo '%s'\n", filename);
     exit(EXIT_FAILURE);
@@ -44,7 +44,8 @@ void read_data_from_file(const char* filename, Point* points, int M, int D) {
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < D; j++) {
       if (fscanf(file, "%d", &points[i].coords[j]) != 1) {
-        fprintf(stderr, "Erro: Arquivo de dados mal formatado ou incompleto.\n");
+        fprintf(stderr,
+                "Erro: Arquivo de dados mal formatado ou incompleto.\n");
         fclose(file);
         exit(EXIT_FAILURE);
       }
@@ -57,10 +58,11 @@ void read_data_from_file(const char* filename, Point* points, int M, int D) {
 /**
  * @brief Inicializa os centroides escolhendo K pontos aleatórios do dataset.
  */
-void initialize_centroids(Point* points, Point* centroids, int M, int K, int D) {
-  srand(42);  // Semente fixa para reprodutibilidade
+void initialize_centroids(Point *points, Point *centroids, int M, int K,
+                          int D) {
+  srand(42); // Semente fixa para reprodutibilidade
 
-  int* indices = (int*)malloc(M * sizeof(int));
+  int *indices = (int *)malloc(M * sizeof(int));
   for (int i = 0; i < M; i++) {
     indices[i] = i;
   }
@@ -80,9 +82,11 @@ void initialize_centroids(Point* points, Point* centroids, int M, int K, int D) 
 }
 
 /**
- * @brief Fase de Atribuição: Associa cada ponto ao cluster do centroide mais próximo.
+ * @brief Fase de Atribuição: Associa cada ponto ao cluster do centroide mais
+ * próximo.
  */
-void assign_points_to_clusters(Point* points, Point* centroids, int M, int K, int D) {
+void assign_points_to_clusters(Point *points, Point *centroids, int M, int K,
+                               int D) {
   for (int i = 0; i < M; i++) {
     long long min_dist = LLONG_MAX;
     int best_cluster = -1;
@@ -99,12 +103,12 @@ void assign_points_to_clusters(Point* points, Point* centroids, int M, int K, in
 }
 
 /**
- * @brief Fase de Atualização: Recalcula a posição de cada centroide como a média
- * (usando divisão inteira) de todos os pontos atribuídos ao seu cluster.
+ * @brief Fase de Atualização: Recalcula a posição de cada centroide como a
+ * média (usando divisão inteira) de todos os pontos atribuídos ao seu cluster.
  */
-void update_centroids(Point* points, Point* centroids, int M, int K, int D) {
-  long long* cluster_sums = (long long*)calloc(K * D, sizeof(long long));
-  int* cluster_counts = (int*)calloc(K, sizeof(int));
+void update_centroids(Point *points, Point *centroids, int M, int K, int D) {
+  long long *cluster_sums = (long long *)calloc(K * D, sizeof(long long));
+  int *cluster_counts = (int *)calloc(K, sizeof(int));
 
   for (int i = 0; i < M; i++) {
     int cluster_id = points[i].cluster_id;
@@ -130,20 +134,21 @@ void update_centroids(Point* points, Point* centroids, int M, int K, int D) {
 /**
  * @brief Imprime os resultados finais e o checksum (como long long).
  */
-void print_results(Point* centroids, int K, int D) {
+void print_results(Point *centroids, int K, int D) {
   printf("--- Centroides Finais ---\n");
   long long checksum = 0;
   for (int i = 0; i < K; i++) {
     printf("Centroide %d: [", i);
     for (int j = 0; j < D; j++) {
       printf("%d", centroids[i].coords[j]);
-      if (j < D - 1) printf(", ");
+      if (j < D - 1)
+        printf(", ");
       checksum += centroids[i].coords[j];
     }
     printf("]\n");
   }
   printf("\n--- Checksum ---\n");
-  printf("%lld\n", checksum);  // %lld para long long int
+  printf("%lld\n", checksum); // %lld para long long int
 }
 
 /**
@@ -152,7 +157,7 @@ void print_results(Point* centroids, int K, int D) {
  * Linha 1: Tempo de execução em segundos (double)
  * Linha 2: Checksum final (long long)
  */
-void print_time_and_checksum(Point* centroids, int K, int D, double exec_time) {
+void print_time_and_checksum(Point *centroids, int K, int D, double exec_time) {
   long long checksum = 0;
   for (int i = 0; i < K; i++) {
     for (int j = 0; j < D; j++) {
@@ -166,21 +171,25 @@ void print_time_and_checksum(Point* centroids, int K, int D, double exec_time) {
 
 // --- Função Principal ---
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   // Validação e leitura dos argumentos de linha de comando
   if (argc != 6) {
-    fprintf(stderr, "Uso: %s <arquivo_dados> <M_pontos> <D_dimensoes> <K_clusters> <I_iteracoes>\n", argv[0]);
+    fprintf(stderr,
+            "Uso: %s <arquivo_dados> <M_pontos> <D_dimensoes> <K_clusters> "
+            "<I_iteracoes>\n",
+            argv[0]);
     return EXIT_FAILURE;
   }
 
-  const char* filename = argv[1];  // Nome do arquivo de dados
-  const int M = atoi(argv[2]);     // Número de pontos
-  const int D = atoi(argv[3]);     // Número de dimensões
-  const int K = atoi(argv[4]);     // Número de clusters
-  const int I = atoi(argv[5]);     // Número de iterações
+  const char *filename = argv[1]; // Nome do arquivo de dados
+  const int M = atoi(argv[2]);    // Número de pontos
+  const int D = atoi(argv[3]);    // Número de dimensões
+  const int K = atoi(argv[4]);    // Número de clusters
+  const int I = atoi(argv[5]);    // Número de iterações
 
   if (M <= 0 || D <= 0 || K <= 0 || I <= 0 || K > M) {
-    fprintf(stderr, "Erro nos parâmetros. Verifique se M,D,K,I > 0 e K <= M.\n");
+    fprintf(stderr,
+            "Erro nos parâmetros. Verifique se M,D,K,I > 0 e K <= M.\n");
     return EXIT_FAILURE;
   }
 
@@ -190,163 +199,119 @@ int main(int argc, char* argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
   MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
-  // registrar tipo Point
-//   MPI_Datatype MPI_Point;
-//   MPI_Type_contiguous(D + 1, MPI_INT, &MPI_Point);
-//   MPI_Type_commit(&MPI_Point);
+  struct timespec start, end;
 
   int points_per_proc = M / comm_sz;
 
   // --- Alocação de Memória ---
-  int* all_coords = (int*)malloc((M + K) * D * sizeof(int));
-  Point* points = (Point*)malloc(M * sizeof(Point));
-  Point* centroids = (Point*)malloc(K * sizeof(Point));
-  // ... (verificação de alocação) ...
-  if (points == NULL || centroids == NULL) {
+  int *all_coords = NULL;
+  Point *points = NULL;
+  Point *centroids = (Point *)malloc(K * sizeof(Point));
+  int *centroid_coords = (int *)malloc(K * D * sizeof(int));
+
+  // Alocação local para cada processo
+  int *my_coords = (int *)malloc(points_per_proc * D * sizeof(int));
+  Point *my_points = (Point *)malloc(points_per_proc * sizeof(Point));
+  int *my_cluster_ids = (int *)malloc(points_per_proc * sizeof(int));
+
+  if (centroids == NULL || centroid_coords == NULL || my_coords == NULL ||
+      my_points == NULL || my_cluster_ids == NULL) {
     fprintf(stderr, "Erro na alocação de memória.\n");
+    MPI_Finalize();
     return EXIT_FAILURE;
   }
-  
-  for (int i = 0; i < M; i++) {
-    points[i].coords = &all_coords[i * D];
+
+  for (int i = 0; i < points_per_proc; i++) {
+    my_points[i].coords = &my_coords[i * D];
   }
   for (int i = 0; i < K; i++) {
-    centroids[i].coords = &all_coords[(M + i) * D];
+    centroids[i].coords = &centroid_coords[i * D];
   }
 
-  
+  if (my_rank == 0) {
+    all_coords = (int *)malloc(M * D * sizeof(int));
+    points = (Point *)malloc(M * sizeof(Point));
+    if (points == NULL || all_coords == NULL) {
+      fprintf(stderr, "Erro na alocação de memória.\n");
+      MPI_Finalize();
+      return EXIT_FAILURE;
+    }
+    for (int i = 0; i < M; i++) {
+      points[i].coords = &all_coords[i * D];
+    }
+  }
 
-  // --- Preparação (Fora da medição de tempo) ---
-  read_data_from_file(filename, points, M, D);
-  initialize_centroids(points, centroids, M, K, D);
+  if (my_rank == 0) {
+    // --- Preparação (Fora da medição de tempo) ---
+    read_data_from_file(filename, points, M, D);
+    initialize_centroids(points, centroids, M, K, D);
 
-  // --- Medição de Tempo do Algoritmo Principal ---
-  struct timespec start, end;
-  clock_gettime(CLOCK_MONOTONIC, &start);  // Inicia o cronômetro
+    // --- Medição de Tempo do Algoritmo Principal ---
+    clock_gettime(CLOCK_MONOTONIC, &start); // Inicia o cronômetro
+  }
 
   // Laço principal do K-Means (A única parte que será medida)
-//   for (int iter = 0; iter < I; iter++) {
-    // assign_points_to_clusters(points, centroids, M, K, D);
-    // se master, distribui pontos e centroides
-    // se não, recebe pontos, calcula atribuições e envia de volta
-    if (my_rank == 0) {  // master
+  for (int iter = 0; iter < I; iter++) {
+    // Broadcast dos centroides para todos os processos
+    MPI_Bcast(centroid_coords, K * D, MPI_INT, 0, MPI_COMM_WORLD);
 
-        // debug: exibir as coordenadas do primeiro ponto
-    printf("DEBUG: Primeiro ponto lido: [");
-    for (int j = 0; j < D; j++) {
-        printf("%d", points[0].coords[j]);
-        if (j < D - 1) printf(", ");
+    // Scatter dos pontos para todos os processos
+    MPI_Scatter(all_coords, points_per_proc * D, MPI_INT, my_coords,
+                points_per_proc * D, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // Cada processo calcula as atribuições para seus pontos
+    assign_points_to_clusters(my_points, centroids, points_per_proc, K, D);
+
+    // Extrair as atribuições locais
+    for (int i = 0; i < points_per_proc; i++) {
+      my_cluster_ids[i] = my_points[i].cluster_id;
     }
-    printf("]\n");
-        // TODO: trocar por gather/scatter
-        // divide pontos entre os processos
-        for (int proc = 1; proc < comm_sz; proc++) {
-            // enviar coordenadas dos pontos
-            MPI_Send(&all_coords[proc * points_per_proc * D], points_per_proc * D * sizeof(int), MPI_BYTE, proc, 0, MPI_COMM_WORLD);
 
-            // enviar coordenadas dos centroides
-            MPI_Send(&all_coords[M * D], K * D * sizeof(int), MPI_BYTE, proc, 0, MPI_COMM_WORLD);
-
-            // receber de volta as atribuições
-            int* cluster_ids = (int*)malloc(points_per_proc * sizeof(int));
-            MPI_Recv(cluster_ids, points_per_proc * sizeof(int), MPI_BYTE, proc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            for (int i = 0; i < points_per_proc; i++) {
-              points[proc * points_per_proc + i].cluster_id = cluster_ids[i];
-            }
-            
-            printf("DEBUG: Atribuições recebidas do processo %d: [", proc);
-            for (int i = 0; i < points_per_proc; i++) {
-                printf("%d", cluster_ids[i]);
-                if (i < points_per_proc - 1) printf(", ");
-            }
-            printf("]\n");
-            
-            free(cluster_ids);
-            
-            
-        }
-    } else {  // worker
-        int* my_point_coords = (int*)malloc((points_per_proc + K) * D * sizeof(int));
-        MPI_Recv(my_point_coords, points_per_proc * D * sizeof(int), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        int* my_centroid_coords = &my_point_coords[points_per_proc * D];
-        MPI_Recv(my_centroid_coords, K * D * sizeof(int), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        Point* my_points = (Point*)malloc(points_per_proc * sizeof(Point));
-        for (int i = 0; i < points_per_proc; i++) {
-          my_points[i].coords = &my_point_coords[i * D];
-        }
-
-        Point* my_centroids = (Point*)malloc(K * sizeof(Point));
-        for (int i = 0; i < K; i++) {
-          my_centroids[i].coords = &my_centroid_coords[i * D];
-        }
-        
-        // printf("DEBUG: worker rank=%d received %d points and %d centroids\n", my_rank, points_per_proc, K);
-
-
-        // debug: exibir as coordenadas do primeiro ponto
-        printf("DEBUG: Primeiro ponto RECEBIDO: [");
-        for (int j = 0; j < D; j++) {
-            printf("%d", my_points[0].coords[j]);
-            if (j < D - 1) printf(", ");
-        }
-        printf("]\n");
-
-    // debug: exibir as coordenadas do primeiro centroide
-    // printf("DEBUG: Primeiro centroide RECEBIDO: [");
-    // for (int j = 0; j < D; j++) {
-    //     printf("%d", my_centroids[0].coords[j]);
-    //     if (j < D - 1) printf(", ");
-    // }
-    // printf("]\n");
-
-        // debug: exibir pontos recebidos
-        // for (int i = 0; i < points_per_proc; i++) {
-        //     printf("Processo %d recebeu ponto %d: [", my_rank, i);
-        //     for (int j = 0; j < D; j++) {
-        //         printf("%d", points[i].coords[j]);
-        //         if (j < D - 1) printf(", ");
-        //     }
-        //     printf("]\n");
-        // }
-
-        // calcular atribuições
-        assign_points_to_clusters(my_points, my_centroids, points_per_proc, K, D);
-
-        // enviar apenas as atribuições de volta para o master
-        int* my_cluster_ids = (int*)malloc(points_per_proc * sizeof(int));
-        for (int i = 0; i < points_per_proc; i++) {
-            my_cluster_ids[i] = my_points[i].cluster_id;
-        }
-        MPI_Send(my_cluster_ids, points_per_proc * sizeof(int), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-        free(my_cluster_ids);
-        free(my_point_coords);
-        free(my_centroid_coords);
-        free(my_points);
-        free(my_centroids);
+    // Gather das atribuições de volta para o processo 0
+    int *all_cluster_ids = NULL;
+    if (my_rank == 0) {
+      all_cluster_ids = (int *)malloc(M * sizeof(int));
     }
-    
-    // update_centroids(points, centroids, M, K, D);
-    // se master, atualiza centroides
-    // se não, faz nada
-//   }
+    MPI_Gather(my_cluster_ids, points_per_proc, MPI_INT, all_cluster_ids,
+               points_per_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
-  clock_gettime(CLOCK_MONOTONIC, &end);  // Para o cronômetro
+    // Processo 0 atualiza os centroides
+    if (my_rank == 0) {
+      // Copiar as atribuições de volta para os pontos
+      for (int i = 0; i < M; i++) {
+        points[i].cluster_id = all_cluster_ids[i];
+      }
+      free(all_cluster_ids);
 
-  // Calcula o tempo decorrido em segundos
-  double time_taken = (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);
+      // Atualizar centroides
+      update_centroids(points, centroids, M, K, D);
+    }
+  }
 
-  // --- Apresentação dos Resultados ---
-  print_time_and_checksum(centroids, K, D, time_taken);
+  if (my_rank == 0) {
+    clock_gettime(CLOCK_MONOTONIC, &end); // Para o cronômetro
 
-  // --- Limpeza ---
-  free(all_coords);
-  free(points);
+    // Calcula o tempo decorrido em segundos
+    double time_taken =
+        (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);
+
+    // --- Apresentação dos Resultados ---
+    // print_results(centroids, K, D);
+    print_time_and_checksum(centroids, K, D, time_taken);
+
+    // --- Limpeza ---
+    free(all_coords);
+    free(points);
+  }
+
+  // Limpeza comum a todos os processos
+  free(centroid_coords);
   free(centroids);
+  free(my_coords);
+  free(my_points);
+  free(my_cluster_ids);
 
-//   MPI_Type_free(&MPI_Point);
+  //   MPI_Type_free(&MPI_Point);
   MPI_Finalize();
   return EXIT_SUCCESS;
 }
