@@ -251,19 +251,24 @@ int main(int argc, char *argv[]) {
   Point *centroids = (Point *)malloc(K * sizeof(Point));
   int *centroid_coords = (int *)malloc(K * D * sizeof(int));
 
-  // Alocação local para cada processo
-  int *my_coords = (int *)malloc(points_per_proc * D * sizeof(int));
+  // Alocação local para cada processo (alinhada para AVX2)
+  int *my_coords = (int *)aligned_alloc(32, points_per_proc * D * sizeof(int));
   Point *my_points = (Point *)malloc(points_per_proc * sizeof(Point));
 
   /* Buffers para redução por cluster (somatórios e contagens) */
   long long *local_sums = (long long *)calloc(K * D, sizeof(long long));
-  long long *global_sums = (long long *)malloc(K * D * sizeof(long long));
+  long long *global_sums = NULL;
   int *local_counts = (int *)calloc(K, sizeof(int));
-  int *global_counts = (int *)malloc(K * sizeof(int));
+  int *global_counts = NULL;
+
+  if (my_rank == 0) {
+    global_sums = (long long *)malloc(K * D * sizeof(long long));
+    global_counts = (int *)malloc(K * sizeof(int));
+  }
 
   if (centroids == NULL || centroid_coords == NULL || my_coords == NULL ||
-      my_points == NULL || local_sums == NULL || global_sums == NULL ||
-      local_counts == NULL || global_counts == NULL) {
+      my_points == NULL || local_sums == NULL || local_counts == NULL ||
+      (my_rank == 0 && (global_sums == NULL || global_counts == NULL))) {
     fprintf(stderr, "Erro na alocação de memória.\n");
     MPI_Finalize();
     return EXIT_FAILURE;
@@ -324,21 +329,23 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // Reduz (soma) as somas e contagens em todos os processos
-    MPI_Allreduce(local_sums, global_sums, K * D, MPI_LONG_LONG, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(local_counts, global_counts, K, MPI_INT, MPI_SUM,
-                  MPI_COMM_WORLD);
+    // Reduz (soma) apenas para o rank 0
+    MPI_Reduce(local_sums, global_sums, K * D, MPI_LONG_LONG, MPI_SUM, 0,
+               MPI_COMM_WORLD);
+    MPI_Reduce(local_counts, global_counts, K, MPI_INT, MPI_SUM, 0,
+               MPI_COMM_WORLD);
 
-    // Atualiza centroides a partir dos resultados reduzidos (todos os procs)
-    for (int c = 0; c < K; c++) {
-      if (global_counts[c] > 0) {
-        for (int j = 0; j < D; j++) {
-          centroid_coords[c * D + j] =
-              (int)(global_sums[c * D + j] / global_counts[c]);
+    // Apenas rank 0 atualiza os centroides
+    if (my_rank == 0) {
+      for (int c = 0; c < K; c++) {
+        if (global_counts[c] > 0) {
+          for (int j = 0; j < D; j++) {
+            centroid_coords[c * D + j] =
+                (int)(global_sums[c * D + j] / global_counts[c]);
+          }
         }
+        /* Se global_counts[c] == 0, mantém o centroide anterior */
       }
-      /* Se global_counts[c] == 0, mantém o centroide anterior */
     }
   }
 
@@ -364,9 +371,12 @@ int main(int argc, char *argv[]) {
   free(my_coords);
   free(my_points);
   free(local_sums);
-  free(global_sums);
   free(local_counts);
-  free(global_counts);
+
+  if (my_rank == 0) {
+    free(global_sums);
+    free(global_counts);
+  }
 
   //   MPI_Type_free(&MPI_Point);
   MPI_Finalize();
