@@ -212,10 +212,16 @@ int main(int argc, char *argv[]) {
   // Alocação local para cada processo
   int *my_coords = (int *)malloc(points_per_proc * D * sizeof(int));
   Point *my_points = (Point *)malloc(points_per_proc * sizeof(Point));
-  int *my_cluster_ids = (int *)malloc(points_per_proc * sizeof(int));
+
+  /* Buffers para redução por cluster (somatórios e contagens) */
+  long long *local_sums = (long long *)calloc(K * D, sizeof(long long));
+  long long *global_sums = (long long *)malloc(K * D * sizeof(long long));
+  int *local_counts = (int *)calloc(K, sizeof(int));
+  int *global_counts = (int *)malloc(K * sizeof(int));
 
   if (centroids == NULL || centroid_coords == NULL || my_coords == NULL ||
-      my_points == NULL || my_cluster_ids == NULL) {
+      my_points == NULL || local_sums == NULL || global_sums == NULL ||
+      local_counts == NULL || global_counts == NULL) {
     fprintf(stderr, "Erro na alocação de memória.\n");
     MPI_Finalize();
     return EXIT_FAILURE;
@@ -249,7 +255,6 @@ int main(int argc, char *argv[]) {
     // --- Medição de Tempo do Algoritmo Principal ---
     clock_gettime(CLOCK_MONOTONIC, &start); // Inicia o cronômetro
   }
-
   // Laço principal do K-Means (A única parte que será medida)
   for (int iter = 0; iter < I; iter++) {
     // Broadcast dos centroides para todos os processos
@@ -259,32 +264,37 @@ int main(int argc, char *argv[]) {
     MPI_Scatter(all_coords, points_per_proc * D, MPI_INT, my_coords,
                 points_per_proc * D, MPI_INT, 0, MPI_COMM_WORLD);
 
+    // Zera os buffers locais
+    memset(local_sums, 0, K * D * sizeof(long long));
+    memset(local_counts, 0, K * sizeof(int));
+
     // Cada processo calcula as atribuições para seus pontos
     assign_points_to_clusters(my_points, centroids, points_per_proc, K, D);
 
-    // Extrair as atribuições locais
+    // Acumula somatórios e contagens locais por cluster
     for (int i = 0; i < points_per_proc; i++) {
-      my_cluster_ids[i] = my_points[i].cluster_id;
-    }
-
-    // Gather das atribuições de volta para o processo 0
-    int *all_cluster_ids = NULL;
-    if (my_rank == 0) {
-      all_cluster_ids = (int *)malloc(M * sizeof(int));
-    }
-    MPI_Gather(my_cluster_ids, points_per_proc, MPI_INT, all_cluster_ids,
-               points_per_proc, MPI_INT, 0, MPI_COMM_WORLD);
-
-    // Processo 0 atualiza os centroides
-    if (my_rank == 0) {
-      // Copiar as atribuições de volta para os pontos
-      for (int i = 0; i < M; i++) {
-        points[i].cluster_id = all_cluster_ids[i];
+      int cid = my_points[i].cluster_id;
+      local_counts[cid]++;
+      for (int j = 0; j < D; j++) {
+        local_sums[cid * D + j] += my_points[i].coords[j];
       }
-      free(all_cluster_ids);
+    }
 
-      // Atualizar centroides
-      update_centroids(points, centroids, M, K, D);
+    // Reduz (soma) as somas e contagens em todos os processos
+    MPI_Allreduce(local_sums, global_sums, K * D, MPI_LONG_LONG, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(local_counts, global_counts, K, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+
+    // Atualiza centroides a partir dos resultados reduzidos (todos os procs)
+    for (int c = 0; c < K; c++) {
+      if (global_counts[c] > 0) {
+        for (int j = 0; j < D; j++) {
+          centroid_coords[c * D + j] =
+              (int)(global_sums[c * D + j] / global_counts[c]);
+        }
+      }
+      /* Se global_counts[c] == 0, mantém o centroide anterior */
     }
   }
 
@@ -309,7 +319,10 @@ int main(int argc, char *argv[]) {
   free(centroids);
   free(my_coords);
   free(my_points);
-  free(my_cluster_ids);
+  free(local_sums);
+  free(global_sums);
+  free(local_counts);
+  free(global_counts);
 
   //   MPI_Type_free(&MPI_Point);
   MPI_Finalize();
