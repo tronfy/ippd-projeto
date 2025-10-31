@@ -255,14 +255,16 @@ int main(int argc, char *argv[]) {
     // --- Medição de Tempo do Algoritmo Principal ---
     clock_gettime(CLOCK_MONOTONIC, &start); // Inicia o cronômetro
   }
+
+  // scatter dos pontos para todos os processos (apenas uma vez, fora do loop)
+  // os pontos nunca mudam durante as iterações
+  MPI_Scatter(all_coords, points_per_proc * D, MPI_INT, my_coords,
+              points_per_proc * D, MPI_INT, 0, MPI_COMM_WORLD);
+
   // Laço principal do K-Means (A única parte que será medida)
   for (int iter = 0; iter < I; iter++) {
     // Broadcast dos centroides para todos os processos
     MPI_Bcast(centroid_coords, K * D, MPI_INT, 0, MPI_COMM_WORLD);
-
-    // Scatter dos pontos para todos os processos
-    MPI_Scatter(all_coords, points_per_proc * D, MPI_INT, my_coords,
-                points_per_proc * D, MPI_INT, 0, MPI_COMM_WORLD);
 
     // Zera os buffers locais
     memset(local_sums, 0, K * D * sizeof(long long));
