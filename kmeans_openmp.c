@@ -1,7 +1,7 @@
 /*
     Sugestões do André para otimizações com OpenMP:
     - 1. Flags do GCC(O3, O4, etc.)
-    - 2. Alocação dinâmica
+    - 2. Alocação dinâmica (com local é mais rápido)
     - 3. Diretiva SIMD
 
 */
@@ -156,17 +156,17 @@ void update_centroids(Point *points, Point *centroids, int M, int K, int D)
             }
         }
 
-#pragma omp critical
+        for (int i = 0; i < K; i++)
         {
-            for (int i = 0; i < K; i++)
+            #pragma omp atomic
+            cluster_counts[i] += local_counts[i];
+            for (int j = 0; j < D; j++)
             {
-                cluster_counts[i] += local_counts[i];
-                for (int j = 0; j < D; j++)
-                {
-                    cluster_sums[i * D + j] += local_sums[i * D + j];
-                }
+                #pragma omp atomic
+                cluster_sums[i * D + j] += local_sums[i * D + j];
             }
         }
+        
         free(local_sums);
         free(local_counts);
     }
