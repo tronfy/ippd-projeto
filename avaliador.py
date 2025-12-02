@@ -9,7 +9,7 @@ import time
 # Parâmetros que serão passados para os programas C
 PARAMS = {
     "DATASET_FILE": "dataset.txt",
-    "M_POINTS": 100000, #OPENMP -> diminui de 1000000 para 100000 para avaliar diretivas de schedule (dynamic, static, guided) | no relatório final utilizar 1000000
+    "M_POINTS": 1000000,
     "D_DIMENSIONS": 10,
     "K_CLUSTERS": 100,
     "I_ITERATIONS": 50,
@@ -24,9 +24,9 @@ CPU_CORES = os.cpu_count() or 4 # Usa 4 como padrão se a detecção falhar
 # Lista de executáveis a serem testados
 EXECUTABLES = [
     {"name": "Sequencial", "source": "kmeans_sequencial.c", "output": "kmeans_sequencial", "type": "serial", "compile_cmd": "make seq"},
-    {"name": "OpenMP", "source": "kmeans_openmp.c", "output": "kmeans_openmp", "type": "omp", "compile_cmd": "make omp"},
+   {"name": "OpenMP", "source": "kmeans_openmp.c", "output": "kmeans_openmp", "type": "omp", "compile_cmd": "make omp"},
     {"name": "Pthreads", "source": "kmeans_pthreads.c", "output": "kmeans_pthreads", "type": "serial", "compile_cmd": "make pth"},
-    {"name": "MPI", "source": "kmeans_mpi.c", "output": "kmeans_mpi", "type": "mpi", "compile_cmd": "make mpi"}
+   {"name": "MPI", "source": "kmeans_mpi.c", "output": "kmeans_mpi", "type": "mpi", "compile_cmd": "make mpi"}
 ]
 
 # --- Cores para o Terminal ---
