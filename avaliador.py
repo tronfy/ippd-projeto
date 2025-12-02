@@ -25,7 +25,7 @@ CPU_CORES = os.cpu_count() or 4 # Usa 4 como padrão se a detecção falhar
 EXECUTABLES = [
     {"name": "Sequencial", "source": "kmeans_sequencial.c", "output": "kmeans_sequencial", "type": "serial", "compile_cmd": "make seq"},
     {"name": "OpenMP", "source": "kmeans_openmp.c", "output": "kmeans_openmp", "type": "omp", "compile_cmd": "make omp"},
-    #{"name": "Pthreads", "source": "kmeans_pthreads.c", "output": "kmeans_pthreads", "type": "serial", "compile_cmd": "make pth"},
+    {"name": "Pthreads", "source": "kmeans_pthreads.c", "output": "kmeans_pthreads", "type": "serial", "compile_cmd": "make pth"},
     {"name": "MPI", "source": "kmeans_mpi.c", "output": "kmeans_mpi", "type": "mpi", "compile_cmd": "make mpi"}
 ]
 
