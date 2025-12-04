@@ -244,6 +244,8 @@ int main(int argc, char *argv[]) {
   struct timespec start, end;
 
   int points_per_proc = M / comm_sz;
+  int remainder = M % comm_sz;
+  int my_num_points = points_per_proc + (my_rank < remainder ? 1 : 0);
 
   // --- Alocação de Memória ---
   int *all_coords = NULL;
@@ -252,8 +254,8 @@ int main(int argc, char *argv[]) {
   int *centroid_coords = (int *)malloc(K * D * sizeof(int));
 
   // Alocação local para cada processo (alinhada para AVX2)
-  int *my_coords = (int *)aligned_alloc(32, points_per_proc * D * sizeof(int));
-  Point *my_points = (Point *)malloc(points_per_proc * sizeof(Point));
+  int *my_coords = (int *)aligned_alloc(32, my_num_points * D * sizeof(int));
+  Point *my_points = (Point *)malloc(my_num_points * sizeof(Point));
 
   /* Buffers para redução por cluster (somatórios e contagens) */
   long long *local_sums = (long long *)calloc(K * D, sizeof(long long));
@@ -274,7 +276,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  for (int i = 0; i < points_per_proc; i++) {
+  for (int i = 0; i < my_num_points; i++) {
     my_points[i].coords = &my_coords[i * D];
   }
   for (int i = 0; i < K; i++) {
@@ -303,10 +305,32 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &start); // Inicia o cronômetro
   }
 
+  // Preparar arrays de contagem e deslocamento para Scatterv
+  int *sendcounts = NULL;
+  int *displs = NULL;
+
+  if (my_rank == 0) {
+    sendcounts = (int *)malloc(comm_sz * sizeof(int));
+    displs = (int *)malloc(comm_sz * sizeof(int));
+
+    int offset = 0;
+    for (int i = 0; i < comm_sz; i++) {
+      sendcounts[i] = (points_per_proc + (i < remainder ? 1 : 0)) * D;
+      displs[i] = offset;
+      offset += sendcounts[i];
+    }
+  }
+
   // scatter dos pontos para todos os processos (apenas uma vez, fora do loop)
   // os pontos nunca mudam durante as iterações
-  MPI_Scatter(all_coords, points_per_proc * D, MPI_INT, my_coords,
-              points_per_proc * D, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Scatterv(all_coords, sendcounts, displs, MPI_INT,
+               my_coords, my_num_points * D, MPI_INT,
+               0, MPI_COMM_WORLD);
+
+  if (my_rank == 0) {
+    free(sendcounts);
+    free(displs);
+  }
 
   // Laço principal do K-Means (A única parte que será medida)
   for (int iter = 0; iter < I; iter++) {
@@ -318,10 +342,10 @@ int main(int argc, char *argv[]) {
     memset(local_counts, 0, K * sizeof(int));
 
     // Cada processo calcula as atribuições para seus pontos
-    assign_points_to_clusters(my_points, centroids, points_per_proc, K, D);
+    assign_points_to_clusters(my_points, centroids, my_num_points, K, D);
 
     // Acumula somatórios e contagens locais por cluster
-    for (int i = 0; i < points_per_proc; i++) {
+    for (int i = 0; i < my_num_points; i++) {
       int cid = my_points[i].cluster_id;
       local_counts[cid]++;
       for (int j = 0; j < D; j++) {
